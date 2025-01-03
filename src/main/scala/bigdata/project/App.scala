@@ -3,9 +3,15 @@
  */
 package bigdata.project
 
+import org.apache.spark.sql.SparkSession
+
 object App {
   def main(args: Array[String]): Unit = {
-    println(greeting())
+    val spark = SparkSession.builder.appName("MovieLens job").getOrCreate()
+    val sqlContext = spark.sqlContext // needed to save as CSV
+    import sqlContext.implicits._
+
+    println("Spark works")
   }
 
   def greeting(): String = "Hello, world!"

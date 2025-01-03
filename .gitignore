@@ -25,7 +25,9 @@ out/
 # Compiled files
 *.class
 
-# JAR/WAR/EAR files
-*.jar
+# WAR/EAR files
 *.war
 *.ear
+
+# Dataset
+dataset.zip
