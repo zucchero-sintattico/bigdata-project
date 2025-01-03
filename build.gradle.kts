@@ -25,10 +25,14 @@ dependencies {
     // This dependency is used by the application.
     implementation("com.google.guava:guava:32.1.1-jre")
 
+    implementation ("org.apache.spark:spark-core_2.12:3.5.1")
+    implementation ("org.apache.spark:spark-sql_2.12:3.5.1")
+    implementation ("org.apache.spark:spark-hive_2.12:3.5.1")
     // Use Scalatest for testing our library
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.scalatest:scalatest_2.13:3.2.16")
     testImplementation("org.scalatestplus:junit-4-13_2.13:3.2.2.0")
+    implementation ("org.apache.spark:spark-streaming_2.12:3.5.1")
 
     // Need scala-xml at test runtime
     testRuntimeOnly("org.scala-lang.modules:scala-xml_2.13:1.2.0")
