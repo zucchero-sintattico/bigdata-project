@@ -50,6 +50,7 @@ dependencies {
     implementation("org.apache.spark:spark-sql_2.12:3.5.1")
     implementation("org.apache.spark:spark-hive_2.12:3.5.1")
     implementation("org.apache.spark:spark-streaming_2.12:3.5.1")
+    implementation("com.typesafe.play:play-json_2.13:2.9.4")
 
     // Test dependencies
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.3.1")
