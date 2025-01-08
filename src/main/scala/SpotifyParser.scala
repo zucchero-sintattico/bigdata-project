@@ -30,14 +30,20 @@ object SpotifyParser {
                      name: String
                    )
 
-  val path_to_datasets = "dataset/spotify/data/"
+  val path_to_datasets = "datasets/spotify/data/"
 
   // create a filenames variable to store all the filenames in the directory
   //  val fileNames = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString)
 
   //  val file = path_to_datasets + "test.json"
 
-  def parseLine(jsonString: String): (List[Track], List[Artist], List[Playlist], List[TrackInPlaylist]) = {
+  private var parsedTracks = List.empty[Track]
+  private var parsedPlaylists = List.empty[Playlist]
+  private var parsedTracksInPlaylist = List.empty[TrackInPlaylist]
+  private var parsedArtists = List.empty[Artist]
+
+  def parseLine(jsonString: String
+               ) = {
     val json = Json.parse(jsonString)
 
     // Extract all playlists
@@ -70,10 +76,10 @@ object SpotifyParser {
           )
         }.toList
 
-        val newArtists = newTracks.map { track =>
+        val newArtists = tracksJson.value.map { trackJson =>
           Artist(
-            uri = track.artistUri,
-            name = (tracksJson.value.head \ "artist_name").as[String]
+            uri = (trackJson \ "artist_uri").as[String],
+            name = (trackJson \ "artist_name").as[String]
           )
         }
 
@@ -92,8 +98,13 @@ object SpotifyParser {
         )
     }
 
-    // Remove duplicates and return
-    (tracks.distinct, artists.distinct, playlists, tracksInPlaylist.distinct)
+    // Remove duplicates and add to the parsed lists
+    parsedPlaylists ++= playlists
+    parsedTracks ++= tracks.distinct
+    parsedArtists ++= artists.distinct
+    parsedTracksInPlaylist ++= tracksInPlaylist
+
+
   }
 
   // Function that takes a list of objects and writes them on a csv file
@@ -112,22 +123,33 @@ object SpotifyParser {
     bw.close()
   }
 
+  def writeParsedData(): Unit = {
+    val datasetPath = "datasets/processed"
+    writeCsv(datasetPath + "/tracks.csv", parsedTracks)
+    writeCsv(datasetPath + "/playlists.csv", parsedPlaylists)
+    writeCsv(datasetPath + "/tracks_in_playlist.csv", parsedTracksInPlaylist)
+    writeCsv(datasetPath + "/artists.csv", parsedArtists)
+  }
+
   def main(args: Array[String]): Unit = {
     //    import java.io.File
     //
     //    val currentDir = new File(".")
     //    println("Files in current directory: " + currentDir.listFiles().map(_.getName).mkString(", "))
-    val outputDir = "dataset/processed/"
     val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString)
-    for (file <- files) {
+    // remove .DS_Store file
+    val filesFiltered = files.filterNot(_.contains(".DS_Store"))
+    var i = 1
+    for (file <- filesFiltered) {
+      print("File number: " + i + " ")
+      println("Processing file: " + file)
       val source = Source.fromFile(file)
       val jsonString = try source.mkString finally source.close()
-      val (tracks, artists, playlist, tracksInPlaylist) = parseLine(jsonString)
-      writeCsv(outputDir + "tracks.csv", tracks)
-      writeCsv(outputDir + "artists.csv", artists)
-      writeCsv(outputDir + "playlist.csv", playlist)
-      writeCsv(outputDir + "tracksInPlaylist.csv", tracksInPlaylist)
+      parseLine(jsonString)
+      println("Done processing file: " + file)
+      i += 1
     }
+    writeParsedData()
 
   }
 
