@@ -36,7 +36,6 @@ object SpotifyParser {
   //  val fileNames = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString)
 
   //  val file = path_to_datasets + "test.json"
-  val file = path_to_datasets + "mpd.slice.0-999.json"
 
   def parseLine(jsonString: String): (List[Track], List[Artist], List[Playlist], List[TrackInPlaylist]) = {
     val json = Json.parse(jsonString)
@@ -118,20 +117,18 @@ object SpotifyParser {
     //
     //    val currentDir = new File(".")
     //    println("Files in current directory: " + currentDir.listFiles().map(_.getName).mkString(", "))
+    val outputDir = "dataset/processed/"
+    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString)
+    for (file <- files) {
+      val source = Source.fromFile(file)
+      val jsonString = try source.mkString finally source.close()
+      val (tracks, artists, playlist, tracksInPlaylist) = parseLine(jsonString)
+      writeCsv(outputDir + "tracks.csv", tracks)
+      writeCsv(outputDir + "artists.csv", artists)
+      writeCsv(outputDir + "playlist.csv", playlist)
+      writeCsv(outputDir + "tracksInPlaylist.csv", tracksInPlaylist)
+    }
 
-    val jsonString = Source.fromFile(file).getLines().mkString
-
-    val (tracks, artists, playlist, tracksInPlaylist) = parseLine(jsonString)
-
-    writeCsv("tracks.csv", tracks)
-    writeCsv("artists.csv", artists)
-    writeCsv("playlist.csv", playlist)
-    writeCsv("tracksInPlaylist.csv", tracksInPlaylist)
-
-    println("Playlist: " + playlist)
-    println("Tracks: " + tracks)
-    println("Artists: " + artists)
-    println("Tracks in Playlist: " + tracksInPlaylist)
   }
 
 
