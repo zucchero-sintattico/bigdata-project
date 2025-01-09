@@ -49,7 +49,7 @@ object SpotifyParser {
     .config("spark.hadoop.fs.s3a.createCrc", "false") // Disabilita i .crc per S3
     .config("spark.hadoop.fs.local.createCrc", "false") // Disabilita i .crc per il file system locale.getOrCreate()
     .getOrCreate()
-  println(spark.sparkContext.getConf.get("spark.hadoop.fs.local.createCrc"))
+
   private val sc = spark.sparkContext
 
 
@@ -142,10 +142,10 @@ object SpotifyParser {
 
   def writeParsedData(): Unit = {
     val pathToProcessed = path_to_datasets + "processed"
-    writeCsv(pathToProcessed + "/tracksWithDuplicated.csv", parsedTracks)
-    writeCsv(pathToProcessed + "/playlistsWithDuplicated.csv", parsedPlaylists)
-    writeCsv(pathToProcessed + "/tracks_in_playlistWithDuplicated.csv", parsedTracksInPlaylist)
-    writeCsv(pathToProcessed + "/artistsWithDuplicated.csv", parsedArtists)
+    writeCsv(pathToProcessed + "/tmp_tracks.csv", parsedTracks)
+    writeCsv(pathToProcessed + "/tmp_playlists.csv", parsedPlaylists)
+    writeCsv(pathToProcessed + "/tmp_tracks_in_playlist.csv", parsedTracksInPlaylist)
+    writeCsv(pathToProcessed + "/tmp_artists.csv", parsedArtists)
     parsedTracks = List.empty[Track]
     parsedPlaylists = List.empty[Playlist]
     parsedTracksInPlaylist = List.empty[TrackInPlaylist]
@@ -153,12 +153,30 @@ object SpotifyParser {
   }
 
   def removeDuplicates() = {
-    val pathToProcessed = path_to_datasets + "processed"
-    import spark.implicits._
-    sc.textFile(pathToProcessed + "/tracksWithDuplicated.csv").distinct().coalesce(1).toDF().write.mode("overwrite").csv(pathToProcessed + "/tracks")
-    sc.textFile(pathToProcessed + "/playlistsWithDuplicated.csv").distinct().coalesce(1).toDF().write.mode("overwrite").csv(pathToProcessed + "/playlists")
-    sc.textFile(pathToProcessed + "/tracks_in_playlistWithDuplicated.csv").distinct().coalesce(1).toDF().write.mode("overwrite").csv(pathToProcessed + "/tracks_in_playlist")
-    sc.textFile(pathToProcessed + "/artistsWithDuplicated.csv").distinct().coalesce(1).toDF().write.mode("overwrite").csv(pathToProcessed + "/artists")
+    val pathToProcessed = path_to_datasets + "processed/"
+    //    import spark.implicits._
+    val directories = List("tracks", "playlists", "tracks_in_playlist", "artists")
+    for (directory <- directories) {
+      val df = spark.read.option("header", "true").csv(pathToProcessed + "tmp_" + directory + ".csv")
+      df.distinct().coalesce(1).write.mode("overwrite").csv(pathToProcessed + directory)
+      val files = Files.list(FileSystems.getDefault.getPath(pathToProcessed + directory)).toArray.map(_.toString)
+      for (file <- files) {
+        if (file.contains(".crc") || file.contains("SUCCESS")) {
+          Files.deleteIfExists(FileSystems.getDefault.getPath(file))
+        }
+      }
+      // rename all the csv file (with regex) with directory name
+      
+
+    }
+    // remove all tmp_ files
+    Files.list(FileSystems.getDefault.getPath(pathToProcessed)).toArray.map(_.toString).foreach(
+      f => {
+        if (f.contains("tmp_")) {
+          Files.deleteIfExists(FileSystems.getDefault.getPath(f))
+        }
+      }
+    )
   }
 
   def main(args: Array[String]): Unit = {
@@ -167,7 +185,7 @@ object SpotifyParser {
     //
     //    val currentDir = new File(".")
     //    println("Files in current directory: " + currentDir.listFiles().map(_.getName).mkString(", "))
-    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString).take(50)
+    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString).take(10)
     // remove .DS_Store file
     val filesFiltered = files.filterNot(_.contains(".DS_Store"))
     var i = 1
