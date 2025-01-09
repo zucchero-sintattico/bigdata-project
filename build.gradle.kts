@@ -57,6 +57,10 @@ dependencies {
 
     // Hadoop AWS library
     implementation("org.apache.hadoop:hadoop-aws:3.2.1")
+
+    // Jackson
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.2")
+    implementation("com.fasterxml.jackson.module:jackson-module-scala_2.13:2.15.2")
 }
 
 tasks.test {
