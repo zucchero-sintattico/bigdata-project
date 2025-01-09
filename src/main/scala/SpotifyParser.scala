@@ -165,8 +165,14 @@ object SpotifyParser {
           Files.deleteIfExists(FileSystems.getDefault.getPath(file))
         }
       }
-      // rename all the csv file (with regex) with directory name
-      
+      // rename all the csv file "part-00000-*" (with regex) with directory name
+      Files.list(FileSystems.getDefault.getPath(pathToProcessed + directory)).toArray.map(_.toString).foreach(
+        f => {
+          val newFileName = f.replaceAll("part-00000-.*", directory + ".csv")
+          Files.move(FileSystems.getDefault.getPath(f), FileSystems.getDefault.getPath(newFileName))
+        }
+      )
+
 
     }
     // remove all tmp_ files
