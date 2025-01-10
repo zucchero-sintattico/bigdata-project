@@ -1,14 +1,14 @@
 import org.apache.spark.sql.SparkSession
 
 import java.nio.file.{FileSystems, Files}
-import scala.io.{BufferedSource, Source}
+import scala.io.Source
 import play.api.libs.json._
 
 
 object SpotifyParser {
 
 
-  case class Track(
+  private case class Track(
                     uri: String,
                     name: String,
                     duration: Int,
@@ -17,24 +17,28 @@ object SpotifyParser {
                     albumName: String
                   )
 
-  case class Playlist(
+  private case class Playlist(
                        pid: Int,
                        name: String,
                        numFollowers: Int
                      )
 
-  case class TrackInPlaylist(
+  private case class TrackInPlaylist(
                               pid: Int,
                               trackUri: String,
                               pos: Int
                             )
 
-  case class Artist(
+  private case class Artist(
                      uri: String,
                      name: String
                    )
 
-  val path_to_datasets = "/Users/giggino/Desktop/bigdata-project/datasets/"
+  // tommi
+  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
+
+  // giggi
+  //val path_to_datasets = "/Users/giggino/Desktop/bigdata-project/datasets/"
 
   // create a filenames variable to store all the filenames in the directory
   //  val fileNames = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString)
@@ -50,11 +54,10 @@ object SpotifyParser {
     .config("spark.hadoop.fs.local.createCrc", "false") // Disabilita i .crc per il file system locale.getOrCreate()
     .getOrCreate()
 
-  private val sc = spark.sparkContext
+  //private val sc = spark.sparkContext
 
-
-  def parseLine(jsonString: String
-               ) = {
+  private def parseLine(jsonString: String
+               ): Unit = {
     val json = Json.parse(jsonString)
 
     // Extract all playlists
@@ -119,7 +122,7 @@ object SpotifyParser {
   }
 
   // Function that takes a list of objects and writes them on a csv file
-  def writeCsv[T](filename: String, objects: List[T]): Unit = {
+  private def writeCsv[T](filename: String, objects: List[T]): Unit = {
     val header = objects.headOption match {
       case Some(obj) => obj.getClass.getDeclaredFields.map(_.getName).mkString(",") + "\n"
       case None => ""
@@ -140,7 +143,7 @@ object SpotifyParser {
   }
 
 
-  def writeParsedData(): Unit = {
+  private def writeParsedData(): Unit = {
     val pathToProcessed = path_to_datasets + "processed"
     writeCsv(pathToProcessed + "/tmp_tracks.csv", parsedTracks)
     writeCsv(pathToProcessed + "/tmp_playlists.csv", parsedPlaylists)
@@ -152,7 +155,7 @@ object SpotifyParser {
     parsedArtists = List.empty[Artist]
   }
 
-  def removeDuplicates() = {
+  private def removeDuplicates(): Unit = {
     val pathToProcessed = path_to_datasets + "processed/"
     //    import spark.implicits._
     val directories = List("tracks", "playlists", "tracks_in_playlist", "artists")
@@ -169,11 +172,11 @@ object SpotifyParser {
       Files.list(FileSystems.getDefault.getPath(pathToProcessed + directory)).toArray.map(_.toString).foreach(
         f => {
           val newFileName = f.replaceAll("part-00000-.*", directory + ".csv")
-          Files.move(FileSystems.getDefault.getPath(f), FileSystems.getDefault.getPath(newFileName))
+          val newFilePath = newFileName.replace(s"${java.io.File.separator}$directory${java.io.File.separator}", s"${java.io.File.separator}")
+          Files.move(FileSystems.getDefault.getPath(f), FileSystems.getDefault.getPath(newFilePath))
         }
       )
-
-
+      deleteDirectory(pathToProcessed + directory)
     }
     // remove all tmp_ files
     Files.list(FileSystems.getDefault.getPath(pathToProcessed)).toArray.map(_.toString).foreach(
@@ -185,13 +188,20 @@ object SpotifyParser {
     )
   }
 
+  private def deleteDirectory(directoryPath: String): Unit = {
+    val dir = FileSystems.getDefault.getPath(directoryPath)
+    if (Files.exists(dir)) {
+      Files.delete(dir)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
 
     //    import java.io.File
     //
     //    val currentDir = new File(".")
     //    println("Files in current directory: " + currentDir.listFiles().map(_.getName).mkString(", "))
-    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString).take(10)
+    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString).take(2)
     // remove .DS_Store file
     val filesFiltered = files.filterNot(_.contains(".DS_Store"))
     var i = 1
