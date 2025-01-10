@@ -60,7 +60,7 @@ dependencies {
 
     // Jackson
     implementation("com.fasterxml.jackson.core:jackson-databind:2.15.2")
-    implementation("com.fasterxml.jackson.module:jackson-module-scala_2.13:2.15.2")
+    implementation("com.fasterxml.jackson.module:jackson-module-scala_2.12:2.15.2")
 }
 
 tasks.test {

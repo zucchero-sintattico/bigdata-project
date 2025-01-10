@@ -1,8 +1,11 @@
-import java.io.{BufferedWriter, File, FileWriter}
+import java.io.{BufferedWriter, File, FileWriter, IOException}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.util.SparkFileUtils
 
+import java.nio.file.{FileSystems, Files}
 import scala.collection.mutable
 import scala.io.Source
 
@@ -66,7 +69,8 @@ object SpotifyParser {
   def main(args: Array[String]): Unit = {
     val mapper = new ObjectMapper()
     mapper.registerModule(DefaultScalaModule)
-    val files = new File(path_to_datasets).listFiles().filter(_.getName.endsWith(".json"))
+
+    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets)).toArray.map(_.toString).take(10)
 
     // path to the output files
     val playlistsCsv = path_to_output + "playlists.csv"
@@ -75,8 +79,8 @@ object SpotifyParser {
     val artistsCsv = path_to_output + "artists.csv"
 
     var counter = 0
-    // prendo i primi 200 file
-    for (file <- files.take(10)) {
+
+    files.foreach { file =>
       println(s"Processing file: ${counter}")
       //increment the counter
       counter += 1
@@ -119,7 +123,7 @@ object SpotifyParser {
 
           artists += Artist(
             uri = track("artist_uri").toString,
-            name = track("artist_name").toString // Nome artista non presente nel JSON
+            name = track("artist_name").toString
           )
         }
       }
@@ -130,10 +134,20 @@ object SpotifyParser {
       appendToCsv(artists.toSeq, artistsCsv, Seq("uri", "name"))
     }
 
+    val conf = new SparkConf()
+      .setAppName("Preprocessing")
+      .setMaster("local[*]")
+      .set("spark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs", "false") // Disabilita file _SUCCESS e .crc
+      .set("spark.local.dir", "C:/Users/tbrin/Desktop/bigdata-project/temp") // Directory temporanea
+      .set("spark.cleaner.referenceTracking", "false") // Disabilita lo shutdown hook
+      .set("spark.worker.cleanup.enabled", "false") // Disabilita il cleanup
+      .set("spark.worker.cleanup.interval", "3600000") // Imposta un intervallo lungo
+      .set("spark.files.overwrite", "true") // Sovrascrive i file senza errore
+
     val spark = SparkSession.builder()
       .appName("Preprocessing")
       .master("local[*]")
-      .config("spark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs", "false") // Disabilita i file _SUCCESS e .crc
+      .config(conf)
       .getOrCreate()
 
     import spark.implicits._
