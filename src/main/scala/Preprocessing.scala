@@ -1,17 +1,16 @@
 import org.apache.spark.sql.SparkSession
 
-import java.nio.file.{FileSystems, Files}
+import java.nio.file.{FileSystems, Files, Paths}
 import scala.io.Source
-import play.api.libs.json._
 import SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist}
 
 import javax.sound.midi
 
 object Preprocessing {
   // tommi
-  //  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
+  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
   // giggi
-  val path_to_datasets = "/Users/giggino/Desktop/bigdata-project/datasets/"
+  //val path_to_datasets = "/Users/giggino/Desktop/bigdata-project/datasets/"
   val pathToProcessed = path_to_datasets + "processed/"
   private val directoryNames = List("tracks", "playlists", "tracks_in_playlist", "artists")
   private val spark = SparkSession.builder.appName("Preprocessing")
@@ -21,6 +20,11 @@ object Preprocessing {
 
   // Function that takes a list of objects and writes them on a csv file
   private def writeCsv[T](filename: String, objects: List[T]): Unit = {
+    val directoryPath = Paths.get(pathToProcessed)
+    if (!Files.exists(directoryPath)) {
+      Files.createDirectory(directoryPath)
+    }
+
     val body = objects.map { obj =>
       obj.getClass.getDeclaredFields.map { field =>
         field.setAccessible(true)
@@ -103,7 +107,7 @@ object Preprocessing {
   // main
   def main(args: Array[String]): Unit = {
     val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString)
-      .take(2)
+      .take(5)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {
@@ -111,7 +115,7 @@ object Preprocessing {
       println("Processing file: " + file)
       val source = Source.fromFile(file)
       val jsonString = try source.mkString finally source.close()
-      SpotifyJsonParser.parseLine(jsonString)
+      SpotifyJsonParser.parseLineJackson(jsonString)
       println("Done processing file: " + file)
       i += 1
       val parsedData = SpotifyJsonParser.getParsedData
