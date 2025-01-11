@@ -55,8 +55,8 @@ object SpotifyParser {
     .config("spark.hadoop.fs.local.createCrc", "false") // Disabilita i .crc per il file system locale.getOrCreate()
     .getOrCreate()
 
-  private def parseLine(jsonString: String
-                       ): Unit = {
+  def parseLine(jsonString: String
+               ): Unit = {
     val json = Json.parse(jsonString)
 
     // Extract all playlists
@@ -140,7 +140,7 @@ object SpotifyParser {
   }
 
 
-  private def writeParsedData(): Unit = {
+  def writeParsedData(): Unit = {
     writeCsv(pathToProcessed + "/tmp_tracks.csv", parsedTracks)
     writeCsv(pathToProcessed + "/tmp_playlists.csv", parsedPlaylists)
     writeCsv(pathToProcessed + "/tmp_tracks_in_playlist.csv", parsedTracksInPlaylist)
@@ -191,7 +191,7 @@ object SpotifyParser {
     Files.deleteIfExists(dir)
   }
 
-  private def clearTempDirectory(): Unit = {
+  def clearTempDirectory(): Unit = {
     directoryNames.foreach(
       directory => {
         removeCrcAndSuccessFiles(directory)
@@ -202,39 +202,10 @@ object SpotifyParser {
     removeTmpCsvFiles()
   }
 
-  private def removeDuplicates(): Unit = {
+  def removeDuplicates(): Unit = {
     for (directory <- directoryNames) {
       val df = spark.read.option("header", "true").csv(pathToProcessed + "tmp_" + directory + ".csv")
       df.distinct().coalesce(1).write.mode("overwrite").csv(pathToProcessed + directory)
     }
   }
-
-
-  def main(args: Array[String]): Unit = {
-
-    //    import java.io.File
-    //
-    //    val currentDir = new File(".")
-    //    println("Files in current directory: " + currentDir.listFiles().map(_.getName).mkString(", "))
-    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString).take(2)
-    // remove .DS_Store file
-    val filesFiltered = files.filterNot(_.contains(".DS_Store"))
-    var i = 1
-    for (file <- filesFiltered) {
-      print("File number: " + i + " ")
-      println("Processing file: " + file)
-      val source = Source.fromFile(file)
-      val jsonString = try source.mkString finally source.close()
-      parseLine(jsonString)
-      println("Done processing file: " + file)
-      i += 1
-      writeParsedData()
-    }
-    removeDuplicates()
-    clearTempDirectory()
-
-
-  }
-
-
 }
