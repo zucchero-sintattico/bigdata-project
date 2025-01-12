@@ -8,14 +8,12 @@ import javax.sound.midi
 
 object Preprocessing {
   // tommi
-  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
+  //  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
   // giggi
-  //val path_to_datasets = "/Users/giggino/Desktop/bigdata-project/datasets/"
+  val path_to_datasets = "/Users/giggino/Desktop/bigdata-project.nosync/datasets/"
   val pathToProcessed = path_to_datasets + "processed/"
   private val directoryNames = List("tracks", "playlists", "tracks_in_playlist", "artists")
   private val spark = SparkSession.builder.appName("Preprocessing")
-    .config("spark.hadoop.fs.s3a.createCrc", "false") // Disabilita i .crc per S3
-    .config("spark.hadoop.fs.local.createCrc", "false") // Disabilita i .crc per il file system locale.getOrCreate()
     .getOrCreate()
 
   // Function that takes a list of objects and writes them on a csv file
@@ -47,42 +45,42 @@ object Preprocessing {
   }
 
   private def removeCrcAndSuccessFiles(directoryName: String): Unit = {
-    Files.list(FileSystems.getDefault.getPath(pathToProcessed + directoryName)).toArray.map(_.toString)
+    Files.list(Paths.get(pathToProcessed + directoryName)).toArray.map(_.toString)
       .foreach(
         file => {
           if (file.contains(".crc") || file.contains("SUCCESS")) {
-            Files.deleteIfExists(FileSystems.getDefault.getPath(file))
+            Files.deleteIfExists(Paths.get(file))
           }
         }
       )
   }
 
   private def renameAndMoveCsvFile(directoryName: String): Unit = {
-    Files.list(FileSystems.getDefault.getPath(pathToProcessed + directoryName)).toArray.map(_.toString)
+    Files.list(Paths.get(pathToProcessed + directoryName)).toArray.map(_.toString)
       .foreach(
         file => {
           if (file.contains("part-00000-")) {
             val newFileName = file.replaceAll("part-00000-.*", directoryName + ".csv")
             val newFilePath = newFileName.replace(s"${java.io.File.separator}$directoryName${java.io.File.separator}", s"${java.io.File.separator}")
-            Files.move(FileSystems.getDefault.getPath(file), FileSystems.getDefault.getPath(newFilePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            Files.move(Paths.get(file), Paths.get(newFilePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
           }
         }
       )
   }
 
   private def removeTmpCsvFiles(): Unit = {
-    Files.list(FileSystems.getDefault.getPath(pathToProcessed)).toArray.map(_.toString)
+    Files.list(Paths.get(pathToProcessed)).toArray.map(_.toString)
       .foreach(
         file => {
           if (file.contains("tmp_")) {
-            Files.deleteIfExists(FileSystems.getDefault.getPath(file))
+            Files.deleteIfExists(Paths.get(file))
           }
         }
       )
   }
 
   private def deleteDirectory(directoryPath: String): Unit = {
-    val dir = FileSystems.getDefault.getPath(directoryPath)
+    val dir = Paths.get(directoryPath)
     Files.deleteIfExists(dir)
   }
 
@@ -106,8 +104,8 @@ object Preprocessing {
 
   // main
   def main(args: Array[String]): Unit = {
-    val files = Files.list(FileSystems.getDefault.getPath(path_to_datasets + "spotify/data/")).toArray.map(_.toString)
-      .take(5)
+    val files = Files.list(Paths.get(path_to_datasets + "spotify/data/")).toArray.map(_.toString)
+      .take(20)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {
