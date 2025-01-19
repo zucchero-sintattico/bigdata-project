@@ -1,4 +1,5 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
+import utils.Commons
 
 object Job {
 
@@ -26,12 +27,11 @@ object Job {
     if (deploymentMode == "sharedRemote") {
       writeMode = "remote"
     }
-    //val job = args(1)
+    val job = args(1)
 
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
-      .collect()
 
     val rddPlaylists = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_playlists)).
@@ -44,6 +44,13 @@ object Job {
     val rddArtists = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_artists)).
       flatMap(CsvParser.parseArtistLine)
+
+    if (job == "1") {
+      // Job Gigi
+    }
+    else if (job == "2") {
+      // Job Tommi
+    }
   }
 
 }

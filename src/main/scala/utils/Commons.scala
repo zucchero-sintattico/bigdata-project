@@ -1,10 +1,10 @@
+package utils
+
 import org.apache.spark.sql.SparkSession
 
 import java.io.InputStream
 
 object Commons {
-
-
 
   object DeploymentMode extends Enumeration {
     type DeploymentMode = Value

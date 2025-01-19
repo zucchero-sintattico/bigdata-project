@@ -5,12 +5,12 @@ import preprocessing.SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist
 
 import java.nio.file.{Files, Paths}
 import scala.io.Source
+import utils._
+
 
 object Preprocessing {
-  // tommi
-  //  private val path_to_datasets = "C:/Users/tbrin/Desktop/bigdata-project/datasets/"
-  // giggi
-  val path_to_datasets = "/Users/giggino/Desktop/bigdata-project.nosync/datasets/"
+  val path_to_datasets = Config.projectDir + "/datasets/"
+  val path_to_json = path_to_datasets + "spotify/data/"
   val pathToProcessed = path_to_datasets + "processed/"
   private val directoryNames = List("tracks", "playlists", "tracks_in_playlist", "artists")
   private val spark = SparkSession.builder.appName("Preprocessing")
@@ -104,7 +104,7 @@ object Preprocessing {
 
   // main
   def main(args: Array[String]): Unit = {
-    val files = Files.list(Paths.get(path_to_datasets + "spotify/data/")).toArray.map(_.toString)
+    val files = Files.list(Paths.get(path_to_json)).toArray.map(_.toString)
       .take(2)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
