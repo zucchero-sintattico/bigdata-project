@@ -27,8 +27,8 @@ object Job {
     if (deploymentMode == "sharedRemote") {
       writeMode = "remote"
     }
-    val job = args(1)
-
+    //    val job = args(1)
+    val job = "1"
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
@@ -47,6 +47,21 @@ object Job {
 
     if (job == "1") {
       // Job Gigi
+      val avgSongOfEachArtistInAPlaylist = rddTracksInPlaylist
+        .keyBy(_.track_uri)
+        .join(rddTracks.keyBy(_.track_uri))
+        .map { case (_, (trackInPlaylist, track)) => (trackInPlaylist.PID, track.artist_uri) }
+        .join(rddArtists.keyBy(_.artist_uri))
+        .map { case (_, (artist_uri, artist)) => (artist_uri, artist.artist_name) }
+        .groupByKey()
+        .map { case (artist_uri, artist_name) => (artist_uri, artist_name.size) }
+        .map { case (artist_uri, count) => (artist_uri, count) }
+        .sortBy(_._2, ascending = false)
+        .take(10)
+
+      // save output as CSV
+      spark.sparkContext.parallelize(avgSongOfEachArtistInAPlaylist).toDF("artist_uri", "count").write.mode(SaveMode.Overwrite).csv(Commons.getDatasetPath(writeMode, "/output/avgSongOfEachArtistInAPlaylist"))
+
     }
     else if (job == "2") {
       // Job Tommi
