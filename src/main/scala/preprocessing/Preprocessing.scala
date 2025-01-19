@@ -1,10 +1,10 @@
+package preprocessing
+
 import org.apache.spark.sql.SparkSession
+import preprocessing.SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist}
 
-import java.nio.file.{FileSystems, Files, Paths}
+import java.nio.file.{Files, Paths}
 import scala.io.Source
-import SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist}
-
-import javax.sound.midi
 
 object Preprocessing {
   // tommi
@@ -105,7 +105,7 @@ object Preprocessing {
   // main
   def main(args: Array[String]): Unit = {
     val files = Files.list(Paths.get(path_to_datasets + "spotify/data/")).toArray.map(_.toString)
-      .take(20)
+      .take(2)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {
