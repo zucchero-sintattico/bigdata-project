@@ -60,7 +60,8 @@ object SpotifyJsonParser {
 
         val newTracks = tracksRaw.map { trackJson =>
           Track(
-            name = trackJson("track_name").asInstanceOf[String],
+            // in the name substitute the comma with a dot
+            name = trackJson("track_name").asInstanceOf[String].replace(",", "."),
             uri = trackJson("track_uri").asInstanceOf[String],
             artistUri = trackJson("artist_uri").asInstanceOf[String],
             albumUri = trackJson("album_uri").asInstanceOf[String],

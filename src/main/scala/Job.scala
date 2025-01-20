@@ -1,3 +1,4 @@
+import org.apache.spark.sql.functions.count
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import utils.Commons
 
@@ -46,22 +47,41 @@ object Job {
       flatMap(CsvParser.parseArtistLine)
 
     if (job == "1") {
-      // Job Gigi
-      val avgSongOfEachArtistInAPlaylist = rddTracksInPlaylist
-        .keyBy(_.track_uri)
-        .join(rddTracks.keyBy(_.track_uri))
-        .map { case (_, (trackInPlaylist, track)) => (trackInPlaylist.PID, track.artist_uri) }
-        .join(rddArtists.keyBy(_.artist_uri))
-        .map { case (_, (artist_uri, artist)) => (artist_uri, artist.artist_name) }
-        .groupByKey()
-        .map { case (artist_uri, artist_name) => (artist_uri, artist_name.size) }
-        .map { case (artist_uri, count) => (artist_uri, count) }
-        .sortBy(_._2, ascending = false)
-        .take(10)
+      // For each artist, calculate the average number of songs in a playlist
+      //      val rddTracksKV = rddTracks.map(x => (x.track_uri, x.artist_uri))
+      //      val rddPlaylistsKV = rddPlaylists.map(x => (x.PID, 1))
+      //      val rddArtistKV = rddArtists.map(x => (x.artist_uri, 1))
+      //      val rddTracksInPlaylistKV = rddTracksInPlaylist.map(x => (x.track_uri, x.PID))
+      val rddTracksKV = rddTracks.map(x => (x._1, x._4))
+      val rddPlaylistsKV = rddPlaylists.map(x => (x._1, 1))
+      val rddArtistKV = rddArtists.map(x => (x._1, 1))
+      val rddTracksInPlaylistKV = rddTracksInPlaylist.map(x => (x._2, x._1))
+
+      import spark.implicits._
+      val rddTrackPlaylist = rddTracksInPlaylistKV.join(
+        rddTracksKV
+      )
+      val rddTrackPlaylistArtist = rddTrackPlaylist.join(rddArtistKV)
+      val artistSongCount =
+        rddTrackPlaylistArtist
+          .map(x => (x._2._2, x._2._1))
+          .groupByKey()
+          .mapValues(_.size)
+          .collect()
+      // save output as CSV
+      val artistSongCountDF = artistSongCount.toSeq.toDF("artist_uri", "num_songs").write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, "/output/artist_song_count"))
+      //      val avgSongOfEachArtistInAPlaylist = rddTracksInPlaylist.
+      //        //        map(x => (x.track_uri, x.PID)).
+      //        //        join(rddTracksKV).
+      //        //        map(x => (x._2._2, x._2._1)).
+      //        //        join(rddPlaylistsKV).
+      //        //        map(x => (x._2._1, x._2._2)).
+      //        //        reduceByKey(_ + _).
+      //        //        join(rddArtistKV).
+      //        //        map(x => (x._1, x._2._1.toDouble / x._2._2)).
+      //        collect()
 
       // save output as CSV
-      spark.sparkContext.parallelize(avgSongOfEachArtistInAPlaylist).toDF("artist_uri", "count").write.mode(SaveMode.Overwrite).csv(Commons.getDatasetPath(writeMode, "/output/avgSongOfEachArtistInAPlaylist"))
-
     }
     else if (job == "2") {
       // Job Tommi
