@@ -3,9 +3,8 @@ package utils
 object Config {
 
   // The local directory containing this repository
-  // tommi
-  //  val projectDir = "C:/Users/tbrin/Desktop/bigdata-project/
-  val projectDir: String = "/Users/giggino/Desktop/bigdata-project.nosync"
+  val projectDir = "/Users/tbrin/Desktop/bigdata-project/"
+  //val projectDir: String = "/Users/giggino/Desktop/bigdata-project.nosync"
   // The name of the shared bucket on AWS S3 to read datasets
   val s3sharedBucketName: String = "unibo-bd2425-egallinucci" // TODO: change this
   // The name of your bucket on AWS S3
