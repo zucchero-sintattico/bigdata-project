@@ -87,6 +87,9 @@ object Job {
     else if (job == "2") {
       // Job Tommi
 
+      // id of the main song
+      
+
       // RDD of (pid, trackUri)
       val playlistTracks = rddTracksInPlaylist.map(x => (x._1, x._2))
 
