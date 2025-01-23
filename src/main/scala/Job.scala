@@ -30,7 +30,7 @@ object Job {
       writeMode = "remote"
     }
     //    val job = args(1)
-    val job = "4"
+    val job = "2"
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
@@ -88,36 +88,54 @@ object Job {
       // Job Tommi
 
       // id of the main song
-      
+      val idSong = "spotify:track:5xlWA3V2l7ZiqYF8Ag5EM8"
 
       // RDD of (pid, trackUri)
-      val playlistTracks = rddTracksInPlaylist.map(x => (x._1, x._2))
+      val trackInPlaylistReduce = rddTracksInPlaylist.map(x => (x._1, x._2))
 
-      // auto-join on track_in_playlist to get all song pairs in the same playlist
-      val rddTrackPairs = playlistTracks.join(playlistTracks)
-        .filter { case (_, (track1, track2)) => track1 != track2 }
-        .map { case (_, (track1, track2)) => ((track1, track2), 1)}
+      // filter to keep only the id of playlist that contains the specific song
+      val playlistForTrack = trackInPlaylistReduce.filter  { case (_, trackUri) => trackUri == idSong }.map(x => x._1)
 
-      // => rdd di forma ((track1,track2), 1) use to count the occurrences
+      // trasform the collection in RDD to join with trackInPlaylistReduce
+      val RDDPlaylistForTrack = playlistForTrack.map((_,null))
 
+      // join
+      val trackInSamePlaylists = trackInPlaylistReduce
+        .join(RDDPlaylistForTrack)
+        .filter(_._2._1 != idSong)
+        .map { case (pid, (trackUri, _)) => (pid, trackUri) }
+
+      // result: RDD of (pid, trackUri) with only playlists that contains the specific song
+      // and the relatives tracks
+
+      // create the pairs of ((mySong, otherSong), 1) for each playlist
+      val rddTrackPairs = trackInSamePlaylists
+        .map { case (_, track) => ((idSong, track), 1)}
+
+      // rdd of form ((track1,track2), 1) use to count the occurrences
+
+      // reduce by key to count the occurrences
       val occurrencesCount = rddTrackPairs.reduceByKey(_ + _)
 
-      // take the pair with the highest value for each track
+      // take the pair with the highest count
       val mostOccurrencesPair = occurrencesCount
-        .map { case ((track1, track2), count) => (track1, (track2, count))}
-        .reduceByKey { case ((track2, count1), (track3, count2)) => if (count1 > count2) (track2, count1) else (track3, count2)}
+        .reduce((x, y) => if (x._2 > y._2) x else y)
 
-      // join on rddTracks for track names
-      val trackDetails = rddTracks.map(x => (x._1, x._2))
-      val firstResult = mostOccurrencesPair.join(trackDetails)
-        .map { case (track1, ((track2, count), track1Name)) => (track1, track1Name, track2, count)}
+      // Unisci i dettagli della traccia specifica e delle tracce correlate
+      val trackDetails = rddTracks.map(x => (x._1, x._2)) // (trackUri, trackName)
 
-      val result = firstResult
-        .map { case (track1, name, track2, count) => (track2, (track1, name, count)) }
-        .join(trackDetails)
-        .map { case (track2, ((track1, name, count), track2Name)) => (track1, name, track2, track2Name, count) }
+      // mostOccurrencesPair to rdd to join
+      val mostOccurrencesPairRDD = spark.sparkContext.parallelize(Seq(mostOccurrencesPair))
 
-      result.saveAsTextFile(Config.projectDir + "output/result")
+      val enrichedResults = mostOccurrencesPairRDD
+        .map {case ((track1, track2), count) => (track1, (track2, count)) }
+        .join(trackDetails) // Unisci il nome della traccia principale
+        .map { case (track1, ((track2, count), track1Name)) => (track2, (track1, track1Name, count)) }
+        .join(trackDetails) // Unisci il nome delle co-tracce
+        .map { case (track2, ((track1, track1Name, count), track2Name)) => (track1, track1Name, track2, track2Name, count) }
+
+      // Salva il risultato
+      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
 
     }
     else if (job == "3") {
