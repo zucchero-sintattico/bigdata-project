@@ -14,13 +14,13 @@ object SpotifyJsonParser {
                   )
 
   case class Playlist(
-                       pid: Int,
+                       pid: String,
                        name: String,
                        numFollowers: Int
                      )
 
   case class TrackInPlaylist(
-                              pid: Int,
+                              pid: String,
                               trackUri: String,
                               pos: Int
                             )
@@ -45,8 +45,8 @@ object SpotifyJsonParser {
 
     val playlists = playlistRaw.map { playlist =>
       Playlist(
-        name = playlist("name").asInstanceOf[String],
-        pid = playlist("pid").asInstanceOf[Int],
+        name = playlist("name").asInstanceOf[String].replace(",", "."),
+        pid = playlist("pid").toString,
         numFollowers = playlist("num_followers").asInstanceOf[Int]
       )
     }
@@ -55,7 +55,7 @@ object SpotifyJsonParser {
       (List.empty[Track], List.empty[Artist], List.empty[TrackInPlaylist])
     ) {
       case ((accTracks, accArtists, accTracksInPlaylist), playlistJson) =>
-        val pid = playlistJson("pid").asInstanceOf[Int]
+        val pid = playlistJson("pid").toString
         val tracksRaw = playlistJson("tracks").asInstanceOf[List[Map[String, Any]]]
 
         val newTracks = tracksRaw.map { trackJson =>
@@ -66,14 +66,14 @@ object SpotifyJsonParser {
             artistUri = trackJson("artist_uri").asInstanceOf[String],
             albumUri = trackJson("album_uri").asInstanceOf[String],
             duration = trackJson("duration_ms").asInstanceOf[Int],
-            albumName = trackJson("album_name").asInstanceOf[String]
+            albumName = trackJson("album_name").asInstanceOf[String].replace(",", ".")
           )
         }
 
         val newArtists = tracksRaw.map { trackJson =>
           Artist(
             uri = trackJson("artist_uri").asInstanceOf[String],
-            name = trackJson("artist_name").asInstanceOf[String]
+            name = trackJson("artist_name").asInstanceOf[String].replace(",", ".")
           )
         }
 
