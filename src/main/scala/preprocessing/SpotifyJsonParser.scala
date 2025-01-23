@@ -93,10 +93,10 @@ object SpotifyJsonParser {
     }
 
     // Remove duplicates and add to the parsed lists
-    parsedPlaylists ++= playlists
-    parsedTracks ++= tracks.distinct
-    parsedArtists ++= artists.distinct
-    parsedTracksInPlaylist ++= tracksInPlaylist
+    parsedPlaylists ++= playlists.sortBy(_.pid)
+    parsedTracks ++= tracks.distinct.sortBy(_.name)
+    parsedArtists ++= artists.distinct.sortBy(_.name)
+    parsedTracksInPlaylist ++= tracksInPlaylist.sortBy(_.pid)
   }
 
   def getParsedData: (List[Track], List[Playlist], List[TrackInPlaylist], List[Artist]) = {

@@ -1,6 +1,7 @@
 package preprocessing
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.col
 import preprocessing.SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist}
 
 import java.nio.file.{Files, Paths}
@@ -97,15 +98,20 @@ object Preprocessing {
 
   private def removeDuplicates(): Unit = {
     for (directory <- directoryNames) {
-      val df = spark.read.option("header", "true").csv(pathToProcessed + "tmp_" + directory + ".csv")
-      df.distinct().coalesce(1).write.mode("overwrite").csv(pathToProcessed + directory)
+      val df = spark.read.option("header", "false").csv(pathToProcessed + "tmp_" + directory + ".csv")
+      if(directory == "tracks_in_playlist" || directory == "playlist") {
+        df.withColumn("_c0", col("_c0").cast("int")).orderBy("_c0")
+      } else {
+        df.distinct().orderBy("_c1")
+      }
+      df.coalesce(1).write.mode("overwrite").csv(pathToProcessed + directory)
     }
   }
 
   // main
   def main(args: Array[String]): Unit = {
     val files = Files.list(Paths.get(path_to_json)).toArray.map(_.toString)
-      .take(200)
+      .take(1)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {
