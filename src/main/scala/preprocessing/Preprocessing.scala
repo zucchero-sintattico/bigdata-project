@@ -33,7 +33,7 @@ object Preprocessing {
     // open file and overwrite if it exists
     val bw = new java.io.BufferedWriter(
       new java.io.FileWriter(filename, true)) // false to overwrite
-    bw.write(body)
+    bw.write(body + "\n")
     bw.close()
   }
 
@@ -100,7 +100,7 @@ object Preprocessing {
     for (directory <- directoryNames) {
       val df = spark.read.option("header", "false").csv(pathToProcessed + "tmp_" + directory + ".csv")
 
-      val sortedDF = if(directory == "tracks_in_playlist" || directory == "playlists") {
+      val sortedDF = if (directory == "tracks_in_playlist" || directory == "playlists") {
         df.withColumn("_c0", col("_c0").cast("int")).orderBy("_c0")
       } else {
         df.distinct().orderBy("_c1")
