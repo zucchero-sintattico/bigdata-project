@@ -1,7 +1,6 @@
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import utils.{Commons, Config}
 
-import scala.collection.mutable
 
 object Job {
 
@@ -17,6 +16,7 @@ object Job {
     val spark = SparkSession.builder.appName("Spotify job").getOrCreate()
     val sqlContext = spark.sqlContext // needed to save as CSV
 
+    val startTime = System.nanoTime()
 
     //    if (args.length < 2) {
     //      println("The first parameter should indicate the deployment mode (\"local\" or \"remote\")")
@@ -86,7 +86,7 @@ object Job {
     }
     else if (job == "2") {
       // Job Tommi
-
+      print("Search for the correlate song")
       // id of the main song
       val idSong = "spotify:track:5xlWA3V2l7ZiqYF8Ag5EM8"
 
@@ -143,9 +143,9 @@ object Job {
     }
     else if (job == "4") {
       // Job Tommi optimized
-
+      print("Search for the correlate song - optimized")
       // id of the main song
-      val idSong = "spotify:track:0UaMYEvWZi0ZqiDOoHU3YI"
+      val idSong = "spotify:track:5xlWA3V2l7ZiqYF8Ag5EM8"
 
       // RDD of (pid, trackUri)
       val trackInPlaylistReduce = rddTracksInPlaylist.map(x => (x._1, x._2))
@@ -247,6 +247,10 @@ object Job {
       enrichedResults.saveAsTextFile(Config.projectDir + "output/result")
 */
     }
+
+    val endTime = System.nanoTime()
+    val duration = (endTime - startTime) / 1e9d
+    println(s"Execution time: $duration seconds")
   }
 
 }
