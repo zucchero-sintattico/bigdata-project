@@ -113,7 +113,7 @@ object Preprocessing {
   // main
   def main(args: Array[String]): Unit = {
     val files = Files.list(Paths.get(path_to_json)).toArray.map(_.toString)
-      .take(100)
+      .take(200)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {
