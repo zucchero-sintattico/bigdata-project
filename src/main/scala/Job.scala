@@ -2,6 +2,8 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 import utils.{Commons, Config}
 
 import scala.collection.mutable
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{StructField, StructType, DoubleType}
 
 object Job {
 
@@ -12,6 +14,9 @@ object Job {
   private val path_playlists = path_to_datasets + "playlists.csv"
   private val path_tracks_in_playlist = path_to_datasets + "tracks_in_playlist.csv"
   private val path_artists = path_to_datasets + "artists.csv"
+
+  val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
+
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder.appName("Spotify job").getOrCreate()
@@ -80,11 +85,7 @@ object Job {
       val sumOfAverages = averageSongsPerArtist.map(_._2).sum()
 
       val result = sumOfAverages / totalPlaylists // Media complessiva
-      // save on output directory
-      import org.apache.spark.sql.Row
-      import org.apache.spark.sql.types.{StructField, StructType, DoubleType}
 
-      val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
       val resultDF = spark.createDataFrame(rowRDD, schema)
 
@@ -131,21 +132,29 @@ object Job {
       val partitioner = new HashPartitioner(numPartitions)
 
       val rddTrackInPlaylistsWithKey = rddTracksInPlaylist.keyBy(_._2)
-      val rddTracksWithKey = rddTracks.keyBy(_._1)
+      val rddTracksWithKey = rddTracks
+        .map(
+          {
+            case (track_uri, _, _, artist_uri, _, _) =>
+              (track_uri, artist_uri)
+          }
+        )
       val rddArtistsWithKey = rddArtists.keyBy(_._1)
 
       val rddJoined = rddTrackInPlaylistsWithKey
         .join(rddTracksWithKey)
-        .map({
-          case (_, ((pid, _, _), (_, track_name, duration_ms, artist_uri, album_uri, album_name))) =>
-            (artist_uri, (pid, track_name, duration_ms, album_uri, album_name))
-        })
+        .map(
+          {
+            case (_, ((pid, _, _), artist_uri)) =>
+              (artist_uri, pid)
+          }
+        )
 
       val rddPidArtistNTracks = rddJoined
         .join(rddArtistsWithKey)
         .map(
           {
-            case (artist_uri, ((pid, _, _, _, _), _)) =>
+            case (artist_uri, (pid, _)) =>
               ((pid, artist_uri), 1)
           }
         )
@@ -186,7 +195,15 @@ object Job {
       }
       //      val totalPlaylists = averageSongsPerArtist.count() // Numero totale di playlist
       //      val sumOfAverages = averageSongsPerArtist.map(_._2).sum() // Somma di tutte le medie
-      val overallAverage = sumOfAverages / totalPlaylists
+      val result = sumOfAverages / totalPlaylists
+
+      // save on output directory
+
+
+      val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
+      val resultDF = spark.createDataFrame(rowRDD, schema)
+
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Config.projectDir + "output/result")
     }
     else if (job == "4") {
       // Job Tommi optimized
