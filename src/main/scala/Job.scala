@@ -127,42 +127,81 @@ object Job {
     else if (job == "3") {
       // Job Gigi Optimized
       import org.apache.spark.HashPartitioner
-      val numPartitions = spark.sparkContext.defaultParallelism
+      import org.apache.spark.broadcast.Broadcast
+
       // Numero di partizioni, dipende dalle risorse del cluster
+      val numPartitions = spark.sparkContext.defaultParallelism
       val partitioner = new HashPartitioner(numPartitions)
 
-      val rddTrackInPlaylistsWithKey = rddTracksInPlaylist.keyBy(_._2)
-      val rddTracksWithKey = rddTracks
-        .map(
-          {
-            case (track_uri, _, _, artist_uri, _, _) =>
-              (track_uri, artist_uri)
+      // Preparazione dei dati per il broadcast
+      val broadcastTracks = spark.sparkContext.broadcast(
+        rddTracks.map {
+          case (track_uri, _, _, artist_uri, _, _) => (track_uri, artist_uri)
+        }.collectAsMap() // Converti in una mappa per lookup efficiente
+      )
+
+      val broadcastArtists = spark.sparkContext.broadcast(
+        rddArtists.map {
+          case (artist_uri, artist_name) => (artist_uri, artist_name)
+        }.collectAsMap() // Converti in una mappa per lookup efficiente
+      )
+
+      // Trasformazione principale con broadcast join
+      val rddPidArtistNTracks = rddTracksInPlaylist
+        .mapPartitions { iter =>
+          val tracksMap = broadcastTracks.value // Accesso alla mappa broadcast
+          val artistsMap = broadcastArtists.value // Accesso alla mappa broadcast
+
+          iter.flatMap {
+            case (pid, track_uri, _) =>
+              tracksMap.get(track_uri) match {
+                case Some(artist_uri) =>
+                  artistsMap.get(artist_uri) match {
+                    case Some(_) => Some(((pid, artist_uri), 1)) // Solo se l'artista esiste
+                    case None => None
+                  }
+                case None => None
+              }
           }
-        )
-      val rddArtistsWithKey = rddArtists.keyBy(_._1)
+        }
 
-      val rddJoined = rddTrackInPlaylistsWithKey
-        .join(rddTracksWithKey)
-        .map(
-          {
-            case (_, ((pid, _, _), artist_uri)) =>
-              (artist_uri, pid)
-          }
-        )
-
-      val rddPidArtistNTracks = rddJoined
-        .join(rddArtistsWithKey)
-        .map(
-          {
-            case (artist_uri, (pid, _)) =>
-              ((pid, artist_uri), 1)
-          }
-        )
-
-
+      // Partizionamento e caching
       val rddPidArtistNTracksPartitioned = rddPidArtistNTracks
         .partitionBy(partitioner)
         .cache()
+
+      //      val rddTrackInPlaylistsWithKey = rddTracksInPlaylist.keyBy(_._2)
+      //      val rddTracksWithKey = rddTracks
+      //        .map(
+      //          {
+      //            case (track_uri, _, _, artist_uri, _, _) =>
+      //              (track_uri, artist_uri)
+      //          }
+      //        )
+      //      val rddArtistsWithKey = rddArtists.keyBy(_._1)
+      //
+      //      val rddJoined = rddTrackInPlaylistsWithKey
+      //        .join(rddTracksWithKey)
+      //        .map(
+      //          {
+      //            case (_, ((pid, _, _), artist_uri)) =>
+      //              (artist_uri, pid)
+      //          }
+      //        )
+      //
+      //      val rddPidArtistNTracks = rddJoined
+      //        .join(rddArtistsWithKey)
+      //        .map(
+      //          {
+      //            case (artist_uri, (pid, _)) =>
+      //              ((pid, artist_uri), 1)
+      //          }
+      //        )
+      //
+      //
+      //      val rddPidArtistNTracksPartitioned = rddPidArtistNTracks
+      //        .partitionBy(partitioner)
+      //        .cache()
 
       // Calcolo del numero totale di brani per ogni artista in ogni playlist
       val artistTrackCount = rddPidArtistNTracksPartitioned.reduceByKey(_ + _) // (PID, artist_uri) -> conteggio
