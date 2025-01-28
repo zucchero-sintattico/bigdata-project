@@ -30,7 +30,7 @@ object Job {
       writeMode = "remote"
     }
     //    val job = args(1)
-    val job = "4"
+    val job = "3"
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
@@ -48,41 +48,47 @@ object Job {
       flatMap(CsvParser.parseArtistLine)
 
     if (job == "1") {
-      // For each artist, calculate the average number of songs in a playlist
-      //      val rddTracksKV = rddTracks.map(x => (x.track_uri, x.artist_uri))
-      //      val rddPlaylistsKV = rddPlaylists.map(x => (x.PID, 1))
-      //      val rddArtistKV = rddArtists.map(x => (x.artist_uri, 1))
-      //      val rddTracksInPlaylistKV = rddTracksInPlaylist.map(x => (x.track_uri, x.PID))
-      val rddTracksKV = rddTracks.map(x => (x._1, x._4))
-      val rddPlaylistsKV = rddPlaylists.map(x => (x._1, 1))
-      val rddArtistKV = rddArtists.map(x => (x._1, 1))
-      val rddTracksInPlaylistKV = rddTracksInPlaylist.map(x => (x._2, x._1))
+      val rddTracksInPlaylistTracks = rddTracksInPlaylist.keyBy({
+          case (_, t_uri, _) => t_uri
+        })
+        .join(rddTracks.keyBy({ case (t_uri, _, _, _, _, _) => t_uri }
+        ))
+        // take all fields of the track, and the playlist PID
+        .map(x => (x._2._1._1, x._2._2._2, x._2._2._3, x._2._2._4, x._2._2._5, x._2._2._6))
+      val rddTracksInPlaylistTracksArtists = rddTracksInPlaylistTracks.keyBy(_._4)
+        .join(rddArtists.keyBy(_._1))
+        // keep all the fields of the track, and the playlist PID and the artist name
+        .map(x => (x._2._1._1, x._2._1._2, x._2._1._3, x._2._1._4, x._2._1._5, x._2._1._6, x._2._2._2))
 
-      import spark.implicits._
-      val rddTrackPlaylist = rddTracksInPlaylistKV.join(
-        rddTracksKV
-      )
-      val rddTrackPlaylistArtist = rddTrackPlaylist.join(rddArtistKV)
-      val artistSongCount =
-        rddTrackPlaylistArtist
-          .map(x => (x._2._2, x._2._1))
-          .groupByKey()
-          .mapValues(_.size)
-          .collect()
-      // save output as CSV
-      val artistSongCountDF = artistSongCount.toSeq.toDF("artist_uri", "num_songs").write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, "/output/artist_song_count"))
-      //      val avgSongOfEachArtistInAPlaylist = rddTracksInPlaylist.
-      //        //        map(x => (x.track_uri, x.PID)).
-      //        //        join(rddTracksKV).
-      //        //        map(x => (x._2._2, x._2._1)).
-      //        //        join(rddPlaylistsKV).
-      //        //        map(x => (x._2._1, x._2._2)).
-      //        //        reduceByKey(_ + _).
-      //        //        join(rddArtistKV).
-      //        //        map(x => (x._1, x._2._1.toDouble / x._2._2)).
-      //        collect()
+      // (PID, track_name, duration_ms, artist_uri, album_uri, album_name, artist_name)
+      val pidArtistTrack = rddTracksInPlaylistTracksArtists.map(x => ((x._1, x._4), 1))
+      val artistTrackCount = pidArtistTrack
+        .reduceByKey(_ + _)
 
-      // save output as CSV
+      val pidToArtistTracks = artistTrackCount.map(x => (x._1._1, x._2))
+      // (PID, num_tracks)
+      val averageSongsPerArtist = pidToArtistTracks
+        .groupByKey() // Raggruppa tutte le playlist
+        .mapValues { counts =>
+          val totalArtists = counts.size
+          val totalTracks = counts.sum
+          totalTracks.toDouble / totalArtists
+        }
+
+      // Calcolo della media complessiva
+      val totalPlaylists = averageSongsPerArtist.count()
+      val sumOfAverages = averageSongsPerArtist.map(_._2).sum()
+
+      val result = sumOfAverages / totalPlaylists // Media complessiva
+      // save on output directory
+      import org.apache.spark.sql.Row
+      import org.apache.spark.sql.types.{StructField, StructType, DoubleType}
+
+      val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
+      val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
+      val resultDF = spark.createDataFrame(rowRDD, schema)
+
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Config.projectDir + "output/result")
     }
     else if (job == "2") {
       // Job Tommi
@@ -93,7 +99,7 @@ object Job {
       // auto-join on track_in_playlist to get all song pairs in the same playlist
       val rddTrackPairs = playlistTracks.join(playlistTracks)
         .filter { case (_, (track1, track2)) => track1 != track2 }
-        .map { case (_, (track1, track2)) => ((track1, track2), 1)}
+        .map { case (_, (track1, track2)) => ((track1, track2), 1) }
 
       // => rdd di forma ((track1,track2), 1) use to count the occurrences
 
@@ -101,13 +107,13 @@ object Job {
 
       // take the pair with the highest value for each track
       val mostOccurrencesPair = occurrencesCount
-        .map { case ((track1, track2), count) => (track1, (track2, count))}
-        .reduceByKey { case ((track2, count1), (track3, count2)) => if (count1 > count2) (track2, count1) else (track3, count2)}
+        .map { case ((track1, track2), count) => (track1, (track2, count)) }
+        .reduceByKey { case ((track2, count1), (track3, count2)) => if (count1 > count2) (track2, count1) else (track3, count2) }
 
       // join on rddTracks for track names
       val trackDetails = rddTracks.map(x => (x._1, x._2))
       val firstResult = mostOccurrencesPair.join(trackDetails)
-        .map { case (track1, ((track2, count), track1Name)) => (track1, track1Name, track2, count)}
+        .map { case (track1, ((track2, count), track1Name)) => (track1, track1Name, track2, count) }
 
       val result = firstResult
         .map { case (track1, name, track2, count) => (track2, (track1, name, count)) }
@@ -119,6 +125,68 @@ object Job {
     }
     else if (job == "3") {
       // Job Gigi Optimized
+      import org.apache.spark.HashPartitioner
+      val numPartitions = spark.sparkContext.defaultParallelism
+      // Numero di partizioni, dipende dalle risorse del cluster
+      val partitioner = new HashPartitioner(numPartitions)
+
+      val rddTrackInPlaylistsWithKey = rddTracksInPlaylist.keyBy(_._2)
+      val rddTracksWithKey = rddTracks.keyBy(_._1)
+      val rddArtistsWithKey = rddArtists.keyBy(_._1)
+
+      val rddJoined = rddTrackInPlaylistsWithKey
+        .join(rddTracksWithKey)
+        .map({
+          case (_, ((pid, _, _), (_, track_name, duration_ms, artist_uri, album_uri, album_name))) =>
+            (artist_uri, (pid, track_name, duration_ms, album_uri, album_name))
+        })
+
+      val rddPidArtistNTracks = rddJoined
+        .join(rddArtistsWithKey)
+        .map(
+          {
+            case (artist_uri, ((pid, _, _, _, _), _)) =>
+              ((pid, artist_uri), 1)
+          }
+        )
+
+
+      val rddPidArtistNTracksPartitioned = rddPidArtistNTracks
+        .partitionBy(partitioner)
+        .cache()
+
+      // Calcolo del numero totale di brani per ogni artista in ogni playlist
+      val artistTrackCount = rddPidArtistNTracksPartitioned.reduceByKey(_ + _) // (PID, artist_uri) -> conteggio
+
+      // Calcolo della somma e del conteggio per ogni playlist
+      val pidToArtistTracks = artistTrackCount.map(x => (x._1._1, x._2)) // PID -> conteggio
+
+      val averageSongsPerArtist = pidToArtistTracks.aggregateByKey((0, 0))(
+        // Combina localmente (somma parziale e conteggio)
+        (acc, value) => (acc._1 + value, acc._2 + 1),
+        // Combina globalmente i risultati delle partizioni
+        (acc1, acc2) => (acc1._1 + acc2._1, acc1._2 + acc2._2)
+      ).mapValues { case (totalTracks, totalArtists) =>
+        totalTracks.toDouble / totalArtists
+      }
+
+      // Calcolo della media complessiva
+      val (sumOfAverages, totalPlaylists) = averageSongsPerArtist.mapPartitions(iter => {
+        var sum = 0.0
+        var count = 0L
+        iter.foreach {
+          case (_, avg) =>
+            sum += avg
+            count += 1
+        }
+        Iterator((sum, count))
+      }).reduce {
+        case ((sum1, count1), (sum2, count2)) =>
+          (sum1 + sum2, count1 + count2)
+      }
+      //      val totalPlaylists = averageSongsPerArtist.count() // Numero totale di playlist
+      //      val sumOfAverages = averageSongsPerArtist.map(_._2).sum() // Somma di tutte le medie
+      val overallAverage = sumOfAverages / totalPlaylists
     }
     else if (job == "4") {
       // Job Tommi optimized
@@ -138,11 +206,11 @@ object Job {
 
 
       val occurrenceCount = coTracksByPlaylist
-        .aggregateByKey(mutable.Map[String, Int]())(    // ogni chiave (traccia) viene inizializzata con una mappa che terrà il count delle sue co-tracce
+        .aggregateByKey(mutable.Map[String, Int]())( // ogni chiave (traccia) viene inizializzata con una mappa che terrà il count delle sue co-tracce
           (acc, coTrack) => {
             acc(coTrack) = acc.getOrElse(coTrack, 0) + 1
             acc
-          },   // per ogni chiave vengono iterati i valori associati (coTrack) e incrementato il count
+          }, // per ogni chiave vengono iterati i valori associati (coTrack) e incrementato il count
           (map1, map2) => {
             map2.foreach { case (coTrack, count) =>
               map1(coTrack) = map1.getOrElse(coTrack, 0) + count
