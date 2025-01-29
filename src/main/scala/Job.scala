@@ -127,7 +127,6 @@ object Job {
     else if (job == "3") {
       // Job Gigi Optimized
       import org.apache.spark.HashPartitioner
-      import org.apache.spark.broadcast.Broadcast
 
       // Numero di partizioni, dipende dalle risorse del cluster
       val numPartitions = spark.sparkContext.defaultParallelism
@@ -168,40 +167,6 @@ object Job {
       // Partizionamento e caching
       val rddPidArtistNTracksPartitioned = rddPidArtistNTracks
         .partitionBy(partitioner)
-        .cache()
-
-      //      val rddTrackInPlaylistsWithKey = rddTracksInPlaylist.keyBy(_._2)
-      //      val rddTracksWithKey = rddTracks
-      //        .map(
-      //          {
-      //            case (track_uri, _, _, artist_uri, _, _) =>
-      //              (track_uri, artist_uri)
-      //          }
-      //        )
-      //      val rddArtistsWithKey = rddArtists.keyBy(_._1)
-      //
-      //      val rddJoined = rddTrackInPlaylistsWithKey
-      //        .join(rddTracksWithKey)
-      //        .map(
-      //          {
-      //            case (_, ((pid, _, _), artist_uri)) =>
-      //              (artist_uri, pid)
-      //          }
-      //        )
-      //
-      //      val rddPidArtistNTracks = rddJoined
-      //        .join(rddArtistsWithKey)
-      //        .map(
-      //          {
-      //            case (artist_uri, (pid, _)) =>
-      //              ((pid, artist_uri), 1)
-      //          }
-      //        )
-      //
-      //
-      //      val rddPidArtistNTracksPartitioned = rddPidArtistNTracks
-      //        .partitionBy(partitioner)
-      //        .cache()
 
       // Calcolo del numero totale di brani per ogni artista in ogni playlist
       val artistTrackCount = rddPidArtistNTracksPartitioned.reduceByKey(_ + _) // (PID, artist_uri) -> conteggio
@@ -232,16 +197,11 @@ object Job {
         case ((sum1, count1), (sum2, count2)) =>
           (sum1 + sum2, count1 + count2)
       }
-      //      val totalPlaylists = averageSongsPerArtist.count() // Numero totale di playlist
-      //      val sumOfAverages = averageSongsPerArtist.map(_._2).sum() // Somma di tutte le medie
       val result = sumOfAverages / totalPlaylists
 
       // save on output directory
-
-
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
       val resultDF = spark.createDataFrame(rowRDD, schema)
-
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Config.projectDir + "output/result")
     }
     else if (job == "4") {
