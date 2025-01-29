@@ -87,7 +87,6 @@ object Job {
     }
     else if (job == "2") {
       // Job Tommi
-      println("Search for the correlate song")
       // id of the main song
       val idSong = "spotify:track:5xlWA3V2l7ZiqYF8Ag5EM8"
 
@@ -144,7 +143,7 @@ object Job {
     }
     else if (job == "4") {
       // Job Tommi optimized
-      println("Search for the correlate song - optimized")
+
       // id of the main song
       val idSong = "spotify:track:5xlWA3V2l7ZiqYF8Ag5EM8"
 
@@ -185,7 +184,8 @@ object Job {
       // Unisci i dettagli della traccia specifica e delle tracce correlate
       val trackDetails = rddTracks.map(x => (x._1, x._2)) // (trackUri, trackName)
 
-      val partitionedTrackDetails = trackDetails.partitionBy(new HashPartitioner(10))
+      // num of partitioner default
+      val partitionedTrackDetails = trackDetails.partitionBy(new HashPartitioner(trackDetails.getNumPartitions))
 
       val enrichedResults = mostOccurrencesPairRDD
         .map {case ((track1, track2), count) => (track1, (track2, count)) }
