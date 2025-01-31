@@ -14,9 +14,9 @@ object Commons {
   import DeploymentMode._
 
   def initializeSparkContext(deploymentMode: String, spark: SparkSession): Unit = {
-    if(deploymentMode == remote){
+    if (deploymentMode == remote) {
       val stream: InputStream = getClass.getResourceAsStream(Config.credentialsPath)
-      val lines = scala.io.Source.fromInputStream( stream ).getLines.toList
+      val lines = scala.io.Source.fromInputStream(stream).getLines.toList
 
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.fast.upload", "true")
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.fast.upload.buffer", "bytebuffer")
@@ -27,13 +27,13 @@ object Commons {
   }
 
   def getDatasetPath(deploymentMode: String, localPath: String, remotePath: String): String = {
-    if(deploymentMode == "local"){
-      "file://" + Config.projectDir + "/" + localPath
+    if (deploymentMode == "local") {
+      Config.projectDir + "/" + localPath
     }
-    else if(deploymentMode == "sharedRemote"){
+    else if (deploymentMode == "sharedRemote") {
       return "s3a://" + Config.s3sharedBucketName + "/" + remotePath
     }
-    else{
+    else {
       return "s3a://" + Config.s3bucketName + "/" + remotePath
     }
   }

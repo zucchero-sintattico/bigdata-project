@@ -3,23 +3,27 @@ package preprocessing
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.col
 import preprocessing.SpotifyJsonParser.{Artist, Playlist, Track, TrackInPlaylist}
+import utils.Commons.DeploymentMode.DeploymentMode
 
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 import utils._
 
-
 object Preprocessing {
-  val path_to_datasets = Config.projectDir + "/datasets/"
+  val path_to_datasets = "/datasets/"
   val path_to_json = path_to_datasets + "spotify/data/"
-  val pathToProcessed = path_to_datasets + "processed/"
+  val pathToProcessed = path_to_datasets + "/processed/"
   private val directoryNames = List("tracks", "playlists", "tracks_in_playlist", "artists")
-  private val spark = SparkSession.builder.appName("Preprocessing")
-    .getOrCreate()
+  private val spark = SparkSession.builder.appName("Preprocessing").getOrCreate()
 
-  // Function that takes a list of objects and writes them on a csv file
+  private var deploymentMode: String = _
+
+  private def getDatasetPath(path: String): String = {
+    Commons.getDatasetPath(deploymentMode, path)
+  }
+
   private def writeCsv[T](filename: String, objects: List[T]): Unit = {
-    val directoryPath = Paths.get(pathToProcessed)
+    val directoryPath = Paths.get(getDatasetPath(pathToProcessed))
     if (!Files.exists(directoryPath)) {
       Files.createDirectory(directoryPath)
     }
@@ -30,75 +34,61 @@ object Preprocessing {
         field.get(obj).toString
       }.mkString(",")
     }.mkString("\n")
-    // open file and overwrite if it exists
-    val bw = new java.io.BufferedWriter(
-      new java.io.FileWriter(filename, true)) // false to overwrite
+    val bw = new java.io.BufferedWriter(new java.io.FileWriter(filename, true))
     bw.write(body + "\n")
     bw.close()
   }
 
-
   private def writeData(parsedTracks: List[Track], parsedPlaylists: List[Playlist], parsedTracksInPlaylist: List[TrackInPlaylist], parsedArtists: List[Artist]): Unit = {
-    writeCsv(pathToProcessed + "/tmp_tracks.csv", parsedTracks)
-    writeCsv(pathToProcessed + "/tmp_playlists.csv", parsedPlaylists)
-    writeCsv(pathToProcessed + "/tmp_tracks_in_playlist.csv", parsedTracksInPlaylist)
-    writeCsv(pathToProcessed + "/tmp_artists.csv", parsedArtists)
+    writeCsv(getDatasetPath(pathToProcessed + "/tmp_tracks.csv"), parsedTracks)
+    writeCsv(getDatasetPath(pathToProcessed + "/tmp_playlists.csv"), parsedPlaylists)
+    writeCsv(getDatasetPath(pathToProcessed + "/tmp_tracks_in_playlist.csv"), parsedTracksInPlaylist)
+    writeCsv(getDatasetPath(pathToProcessed + "/tmp_artists.csv"), parsedArtists)
   }
 
   private def removeCrcAndSuccessFiles(directoryName: String): Unit = {
-    Files.list(Paths.get(pathToProcessed + directoryName)).toArray.map(_.toString)
-      .foreach(
-        file => {
-          if (file.contains(".crc") || file.contains("SUCCESS")) {
-            Files.deleteIfExists(Paths.get(file))
-          }
-        }
-      )
+    Files.list(Paths.get(getDatasetPath(pathToProcessed + directoryName))).toArray.map(_.toString).foreach { file =>
+      if (file.contains(".crc") || file.contains("SUCCESS")) {
+        Files.deleteIfExists(Paths.get(file))
+      }
+    }
   }
 
   private def renameAndMoveCsvFile(directoryName: String): Unit = {
-    Files.list(Paths.get(pathToProcessed + directoryName)).toArray.map(_.toString)
-      .foreach(
-        file => {
-          if (file.contains("part-00000-")) {
-            val newFileName = file.replaceAll("part-00000-.*", directoryName + ".csv")
-            val newFilePath = newFileName.replace(s"${java.io.File.separator}$directoryName${java.io.File.separator}", s"${java.io.File.separator}")
-            Files.move(Paths.get(file), Paths.get(newFilePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-          }
-        }
-      )
+    Files.list(Paths.get(getDatasetPath(pathToProcessed) + directoryName)).toArray.map(_.toString).foreach { file =>
+      if (file.contains("part-00000-")) {
+        val newFileName = file.replaceAll("part-00000-.*", directoryName + ".csv")
+        val newFilePath = newFileName.replace(s"${java.io.File.separator}$directoryName${java.io.File.separator}", s"${java.io.File.separator}")
+        Files.move(Paths.get(file), Paths.get(newFilePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+      }
+    }
   }
 
   private def removeTmpCsvFiles(): Unit = {
-    Files.list(Paths.get(pathToProcessed)).toArray.map(_.toString)
-      .foreach(
-        file => {
-          if (file.contains("tmp_")) {
-            Files.deleteIfExists(Paths.get(file))
-          }
-        }
-      )
+    Files.list(Paths.get(getDatasetPath(pathToProcessed))).toArray.map(_.toString).foreach { file =>
+      if (file.contains("tmp_")) {
+        Files.deleteIfExists(Paths.get(file))
+      }
+    }
   }
 
   private def deleteDirectory(directoryPath: String): Unit = {
-    val dir = Paths.get(directoryPath)
+    val dir = Paths.get(getDatasetPath(directoryPath))
     Files.deleteIfExists(dir)
   }
 
   private def clearTempDirectory(): Unit = {
-    directoryNames.foreach(
-      directory => {
-        removeCrcAndSuccessFiles(directory)
-        renameAndMoveCsvFile(directory)
-        deleteDirectory(pathToProcessed + directory)
-      }
-    )
+    directoryNames.foreach { directory =>
+      removeCrcAndSuccessFiles(directory)
+      renameAndMoveCsvFile(directory)
+      deleteDirectory(pathToProcessed + directory)
+    }
     removeTmpCsvFiles()
   }
 
   private def removeDuplicates(): Unit = {
     for (directory <- directoryNames) {
-      val df = spark.read.option("header", "false").csv(pathToProcessed + "tmp_" + directory + ".csv")
+      val df = spark.read.option("header", "false").csv(getDatasetPath(pathToProcessed) + "tmp_" + directory + ".csv")
 
       val sortedDF = if (directory == "tracks_in_playlist" || directory == "playlists") {
         df.withColumn("_c0", col("_c0").cast("int")).orderBy("_c0")
@@ -106,14 +96,14 @@ object Preprocessing {
         df.distinct().orderBy("_c1")
       }
 
-      sortedDF.coalesce(1).write.mode("overwrite").csv(pathToProcessed + directory)
+      sortedDF.coalesce(1).write.mode("overwrite").csv(getDatasetPath(pathToProcessed) + directory)
     }
   }
 
-  // main
   def main(args: Array[String]): Unit = {
-    val files = Files.list(Paths.get(path_to_json)).toArray.map(_.toString)
-      .take(200)
+    deploymentMode = args(0)
+    val files = Files.list(Paths.get(getDatasetPath(path_to_json))).toArray.map(_.toString)
+      .take(2)
       .filterNot(_.contains(".DS_Store"))
     var i = 1
     for (file <- files) {

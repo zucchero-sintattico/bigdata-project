@@ -9,12 +9,14 @@ import org.apache.spark.sql.types.{StructField, StructType, DoubleType}
 object Job {
 
 
-  val path_to_datasets = "/datasets/processed/"
+  val path_to_datasets = "datasets/processed/"
 
   private val path_tracks = path_to_datasets + "tracks.csv"
   private val path_playlists = path_to_datasets + "playlists.csv"
   private val path_tracks_in_playlist = path_to_datasets + "tracks_in_playlist.csv"
   private val path_artists = path_to_datasets + "artists.csv"
+
+  private val path_to_avg_song_per_artist = "output/avg_song_per_artist/"
 
   val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
 
@@ -226,7 +228,7 @@ object Job {
       // save on output directory
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
       val resultDF = spark.createDataFrame(rowRDD, schema)
-      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Config.projectDir + "output/result")
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist))
     }
     else if (job == "4") {
       // Job Tommi optimized
