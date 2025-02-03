@@ -11,6 +11,6 @@ object Config {
   // The name of your bucket on AWS S3
   val s3bucketName: String = "luigiborriellobucket"
   // The path to the credentials file for AWS (if you follow instructions, this should not be updated)
-  val credentialsPath: String = "../../../resources/aws_credentials.txt" // TODO: check this
+  val credentialsPath: String = "/aws_credentials.txt" // TODO: check this
 
 }

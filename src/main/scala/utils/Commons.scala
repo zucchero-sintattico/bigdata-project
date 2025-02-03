@@ -14,7 +14,7 @@ object Commons {
   import DeploymentMode._
 
   def initializeSparkContext(deploymentMode: String, spark: SparkSession): Unit = {
-    if (deploymentMode == remote) {
+    if (deploymentMode == "remote") {
       val stream: InputStream = getClass.getResourceAsStream(Config.credentialsPath)
       val lines = scala.io.Source.fromInputStream(stream).getLines.toList
 
@@ -31,15 +31,15 @@ object Commons {
       Config.projectDir + "/" + localPath
     }
     else if (deploymentMode == "sharedRemote") {
-      return "s3a://" + Config.s3sharedBucketName + "/" + remotePath
+      "s3a://" + Config.s3sharedBucketName + "/" + remotePath
     }
     else {
-      return "s3a://" + Config.s3bucketName + "/" + remotePath
+      "s3a://" + Config.s3bucketName + "/" + remotePath
     }
   }
 
   def getDatasetPath(deploymentMode: String, path: String): String = {
-    return getDatasetPath(deploymentMode, path, path)
+    getDatasetPath(deploymentMode, path, path)
   }
 
 }

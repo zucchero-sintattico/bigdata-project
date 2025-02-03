@@ -4,7 +4,8 @@ import utils.{Commons, Config}
 
 import scala.collection.mutable
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{StructField, StructType, DoubleType}
+import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+import preprocessing.Preprocessing.spark
 
 object Job {
 
@@ -40,6 +41,8 @@ object Job {
     }
     //    val job = args(1)
     val job = "3"
+    println("AWS Access Key: " + spark.sparkContext.hadoopConfiguration.get("fs.s3n.awsAccessKeyId"))
+    println("AWS Secret Key: " + spark.sparkContext.hadoopConfiguration.get("fs.s3n.awsSecretAccessKey"))
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
@@ -55,6 +58,7 @@ object Job {
     val rddArtists = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_artists)).
       flatMap(CsvParser.parseArtistLine)
+
 
     if (job == "1") {
       val rddTracksInPlaylistTracks = rddTracksInPlaylist.keyBy({
