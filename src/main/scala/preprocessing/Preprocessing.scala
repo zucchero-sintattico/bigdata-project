@@ -40,9 +40,6 @@ object Preprocessing {
         field.get(obj).toString
       }.mkString(",")
     }.mkString("\n")
-    //    val bw = new java.io.BufferedWriter(new java.io.FileWriter(filename, true))
-    //    bw.write(body + "\n")
-    //    bw.close()
     val outputStream = fs.create(new Path(filename), true) // true per sovrascrivere se esiste
     val writer = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"))
 
@@ -61,11 +58,6 @@ object Preprocessing {
   }
 
   private def removeCrcAndSuccessFiles(directoryName: String): Unit = {
-    //    Files.list(Paths.get(getDatasetPath(pathToProcessed + directoryName))).toArray.map(_.toString).foreach { file =>
-    //      if (file.contains(".crc") || file.contains("SUCCESS")) {
-    //        Files.deleteIfExists(Paths.get(file))
-    //      }
-    //    }
     val directoryPath = new Path(getDatasetPath(pathToProcessed + directoryName))
 
     // Elenco dei file nel bucket S3
@@ -111,13 +103,6 @@ object Preprocessing {
     }
   }
 
-  //  private def removeTmpCsvFiles(): Unit = {
-  //    Files.list(Paths.get(getDatasetPath(pathToProcessed))).toArray.map(_.toString).foreach { file =>
-  //      if (file.contains("tmp_")) {
-  //        Files.deleteIfExists(Paths.get(file))
-  //      }
-  //    }
-  //  }
   private def removeTmpCsvFiles(): Unit = {
     val directoryPath = new Path(getDatasetPath(pathToProcessed))
 
@@ -145,12 +130,6 @@ object Preprocessing {
       println(s"Directory $directoryPath eliminata.")
     }
   }
-
-
-  //  private def deleteDirectory(directoryPath: String): Unit = {
-  //    val dir = Paths.get(getDatasetPath(directoryPath))
-  //    Files.deleteIfExists(dir)
-  //  }
 
   private def clearTempDirectory(): Unit = {
     directoryNames.foreach { directory =>
@@ -205,7 +184,7 @@ object Preprocessing {
     clearTempDirectory()
   }
 
-  private def initializeFs(deploymentMode: String) = {
+  private def initializeFs(deploymentMode: String): Unit = {
     if (deploymentMode == "remote") {
       fs = FileSystem.get(new URI(getDatasetPath(path_to_json)), spark.sparkContext.hadoopConfiguration)
     }

@@ -34,3 +34,4 @@ dataset.zip
 dataset/
 datasets/
 output/
+src/main/resources/aws_credentials.txt
