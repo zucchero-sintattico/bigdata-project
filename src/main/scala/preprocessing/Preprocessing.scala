@@ -19,7 +19,7 @@ object Preprocessing {
   val pathToProcessed = path_to_datasets + "processed/"
   private val directoryNames = List("tracks", "playlists", "tracks_in_playlist", "artists")
   private val spark = SparkSession.builder.appName("Preprocessing").getOrCreate()
-  val fs = FileSystem.get(new URI(getDatasetPath(path_to_json)), spark.sparkContext.hadoopConfiguration)
+  var fs: FileSystem = _
 
 
   private var deploymentMode: String = _
@@ -179,13 +179,14 @@ object Preprocessing {
     deploymentMode = args(0)
 
     Commons.initializeSparkContext(deploymentMode, spark)
+    initializeFs(deploymentMode)
     var files = List.empty[String]
     val path = new Path(getDatasetPath(path_to_json))
     if (deploymentMode == "local") {
       files = Files.list(Paths.get(getDatasetPath(path_to_json))).toArray.map(_.toString).filter(_.endsWith(".json")).toList
     }
     else {
-      files = fs.listStatus(path).map(_.getPath.toString).take(2).toList
+      files = fs.listStatus(path).map(_.getPath.toString).toList
     }
     var i = 1
     for (file <- files) {
@@ -202,5 +203,15 @@ object Preprocessing {
     }
     removeDuplicates()
     clearTempDirectory()
+  }
+
+  private def initializeFs(deploymentMode: String) = {
+    if (deploymentMode == "remote") {
+      fs = FileSystem.get(new URI(getDatasetPath(path_to_json)), spark.sparkContext.hadoopConfiguration)
+    }
+    else {
+      fs = FileSystem.get(spark.sparkContext.hadoopConfiguration)
+    }
+
   }
 }
