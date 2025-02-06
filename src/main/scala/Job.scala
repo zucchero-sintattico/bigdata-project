@@ -17,7 +17,10 @@ object Job {
   private val path_tracks_in_playlist = path_to_datasets + "tracks_in_playlist.csv"
   private val path_artists = path_to_datasets + "artists.csv"
 
-  private val path_to_avg_song_per_artist = "output/avg_song_per_artist/"
+  private val path_to_avg_song_per_artist_no_opt = "output/avg_song_per_artist/no-opt/"
+  private val path_to_avg_song_per_artist_opt = "output/avg_song_per_artist/opt/"
+  private val path_to_most_similar_song_no_opt = "output/most_similar_song/no-opt"
+  private val path_to_most_similar_song_opt = "output/most_similar_song/opt"
 
   val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
 
@@ -28,21 +31,21 @@ object Job {
 
     val startTime = System.nanoTime()
 
-    //    if (args.length < 2) {
-    //      println("The first parameter should indicate the deployment mode (\"local\" or \"remote\")")
-    //      println("The second parameter should indicate the job (1 for join-and-agg, 2 for agg-and-join, 3 for agg-and-bjoin)")
-    //      return
-    //    }
+    if (args.length < 2) {
+      println("The first parameter should indicate the deployment mode (\"local\" or \"remote\")")
+      println("The second parameter should indicate the job (1 for join-and-agg, 2 for agg-and-join, 3 for agg-and-bjoin)")
+      return
+    }
 
     val deploymentMode = args(0)
     var writeMode = deploymentMode
     if (deploymentMode == "sharedRemote") {
       writeMode = "remote"
     }
-    //    val job = args(1)
-    val job = "3"
-    println("AWS Access Key: " + spark.sparkContext.hadoopConfiguration.get("fs.s3n.awsAccessKeyId"))
-    println("AWS Secret Key: " + spark.sparkContext.hadoopConfiguration.get("fs.s3n.awsSecretAccessKey"))
+    Commons.initializeSparkContext(deploymentMode, spark)
+    val job = args(1)
+    //    val job = "3"
+
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
       flatMap(CsvParser.parseTrackLine)
@@ -59,8 +62,10 @@ object Job {
       textFile(Commons.getDatasetPath(deploymentMode, path_artists)).
       flatMap(CsvParser.parseArtistLine)
 
+    println("Job: " + job)
 
     if (job == "1") {
+      println("Job Gigi")
       val rddTracksInPlaylistTracks = rddTracksInPlaylist.keyBy({
           case (_, t_uri, _) => t_uri
         })
@@ -97,7 +102,7 @@ object Job {
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
       val resultDF = spark.createDataFrame(rowRDD, schema)
 
-      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Config.projectDir + "output/result")
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist_no_opt))
     }
     else if (job == "2") {
       // Job Tommi
@@ -151,7 +156,9 @@ object Job {
         .map { case (track2, ((track1, track1Name, count), track2Name)) => (track1, track1Name, track2, track2Name, count) }
 
       // Salva il risultato
-      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
+      val rowRDD = spark.sparkContext.parallelize(Seq(Row(enrichedResults.coalesce(1))))
+      val resultDF = spark.createDataFrame(rowRDD, schema)
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_no_opt))
 
     }
     else if (job == "3") {
@@ -232,7 +239,7 @@ object Job {
       // save on output directory
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
       val resultDF = spark.createDataFrame(rowRDD, schema)
-      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist))
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist_opt))
     }
     else if (job == "4") {
       // Job Tommi optimized
@@ -289,7 +296,9 @@ object Job {
         .map { case (track2, ((track1, track1Name, count), track2Name)) => (track1, track1Name, track2, track2Name, count) }
 
       // Salva il risultato
-      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
+      val rowRDD = spark.sparkContext.parallelize(Seq(Row(enrichedResults.coalesce(1))))
+      val resultDF = spark.createDataFrame(rowRDD, schema)
+      resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_opt))
 
     }
 
