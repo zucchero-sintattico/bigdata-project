@@ -41,6 +41,8 @@ axs[1].bar(indices2 - bar_width/2, alg2_v1[4], width=bar_width, label='Non optim
 axs[1].bar(indices2 + bar_width/2, alg2_v2[4], width=bar_width, label='Optimized version')
 axs[1].set_title(f'Job 2: Most popular song - {alg2_v1[1].iloc[0]}')
 axs[1].set_ylabel('Shared playlists')
+xvalues = [f'{alg2_v1[3].iloc[0]}', f'{alg2_v2[3].iloc[0]}']
+axs[1].set_xlabel(f'{xvalues} ')
 axs[1].legend()
 axs[1].grid(True)
 
