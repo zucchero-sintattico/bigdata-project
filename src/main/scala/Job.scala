@@ -4,7 +4,7 @@ import utils.{Commons, Config}
 
 import scala.collection.mutable
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType, StructField, StructType}
 import preprocessing.Preprocessing.spark
 
 object Job {
@@ -23,6 +23,14 @@ object Job {
   private val path_to_most_similar_song_opt = "output/most_similar_song/opt"
 
   val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
+
+  val schema2 = StructType(Seq(
+    StructField("track1", StringType, nullable = false),
+    StructField("track1Name", StringType, nullable = false),
+    StructField("track2", StringType, nullable = false),
+    StructField("track2Name", StringType, nullable = false),
+    StructField("count", IntegerType, nullable = false)
+  ))
 
 
   def main(args: Array[String]): Unit = {
@@ -44,7 +52,6 @@ object Job {
     }
     Commons.initializeSparkContext(deploymentMode, spark)
     val job = args(1)
-    //    val job = "3"
 
     val rddTracks = spark.sparkContext.
       textFile(Commons.getDatasetPath(deploymentMode, path_tracks)).
@@ -156,12 +163,15 @@ object Job {
         .map { case (track2, ((track1, track1Name, count), track2Name)) => (track1, track1Name, track2, track2Name, count) }
 
       // Salva il risultato
-      val rowRDD = spark.sparkContext.parallelize(Seq(Row(enrichedResults.coalesce(1))))
-      val resultDF = spark.createDataFrame(rowRDD, schema)
+      val rowRDD = enrichedResults.map {
+        case (track1, track1Name, track2, track2Name, count) =>
+          Row(track1, track1Name, track2, track2Name, count)
+      }
+      val resultDF = spark.createDataFrame(rowRDD, schema2)
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_no_opt))
 
       // Salva il risultato
-      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
+      //enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
     }
     else if (job == "3") {
       // Job Gigi Optimized
@@ -297,12 +307,16 @@ object Job {
         .map { case (track2, ((track1, track1Name, count), track2Name)) => (track1, track1Name, track2, track2Name, count) }
 
       // Salva il risultato
-      val rowRDD = spark.sparkContext.parallelize(Seq(Row(enrichedResults.coalesce(1))))
-      val resultDF = spark.createDataFrame(rowRDD, schema)
+      val rowRDD = enrichedResults.map {
+        case (track1, track1Name, track2, track2Name, count) =>
+          Row(track1, track1Name, track2, track2Name, count)
+      }
+      val resultDF = spark.createDataFrame(rowRDD, schema2)
+
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_opt))
 
       // Salva il risultato
-      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
+      //enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
     }
 
     val endTime = System.nanoTime()
