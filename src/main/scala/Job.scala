@@ -160,6 +160,8 @@ object Job {
       val resultDF = spark.createDataFrame(rowRDD, schema)
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_no_opt))
 
+      // Salva il risultato
+      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
     }
     else if (job == "3") {
       // Job Gigi Optimized
@@ -259,7 +261,6 @@ object Job {
       // Broadcast the list of playlists
       val playlistsBroadcast = spark.sparkContext.broadcast(playlistForTrack.collect().toSet)
 
-
       // filter to obtain all the songs in playlist that contains the track
       val trackInSamePlaylists = trackInPlaylistReduce
         .filter { case (pid, _) => playlistsBroadcast.value.contains(pid) }
@@ -300,6 +301,8 @@ object Job {
       val resultDF = spark.createDataFrame(rowRDD, schema)
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_opt))
 
+      // Salva il risultato
+      enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
     }
 
     val endTime = System.nanoTime()
