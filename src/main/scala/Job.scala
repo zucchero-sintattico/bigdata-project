@@ -78,11 +78,10 @@ object Job {
         })
         .join(rddTracks.keyBy({ case (t_uri, _, _, _, _, _) => t_uri }
         ))
-        // take all fields of the track, and the playlist PID
+
         .map(x => (x._2._1._1, x._2._2._2, x._2._2._3, x._2._2._4, x._2._2._5, x._2._2._6))
       val rddTracksInPlaylistTracksArtists = rddTracksInPlaylistTracks.keyBy(_._4)
         .join(rddArtists.keyBy(_._1))
-        // keep all the fields of the track, and the playlist PID and the artist name
         .map(x => (x._2._1._1, x._2._1._2, x._2._1._3, x._2._1._4, x._2._1._5, x._2._1._6, x._2._2._2))
 
       // (PID, track_name, duration_ms, artist_uri, album_uri, album_name, artist_name)
