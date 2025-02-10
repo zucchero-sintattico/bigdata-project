@@ -10,7 +10,7 @@ import preprocessing.Preprocessing.spark
 object Job {
 
 
-  val path_to_datasets = "datasets/processed/"
+  private val path_to_datasets = "datasets/processed/"
 
   private val path_tracks = path_to_datasets + "tracks.csv"
   private val path_playlists = path_to_datasets + "playlists.csv"
@@ -22,9 +22,9 @@ object Job {
   private val path_to_most_similar_song_no_opt = "output/most_similar_song/no-opt"
   private val path_to_most_similar_song_opt = "output/most_similar_song/opt"
 
-  val schema = StructType(List(StructField("result", DoubleType, nullable = false)))
+  private val firstJobSchema = StructType(List(StructField("result", DoubleType, nullable = false)))
 
-  val schema2 = StructType(Seq(
+  private val secondJobSchema = StructType(Seq(
     StructField("track1", StringType, nullable = false),
     StructField("track1Name", StringType, nullable = false),
     StructField("track2", StringType, nullable = false),
@@ -106,7 +106,7 @@ object Job {
       val result = sumOfAverages / totalPlaylists // Media complessiva
 
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
-      val resultDF = spark.createDataFrame(rowRDD, schema)
+      val resultDF = spark.createDataFrame(rowRDD, firstJobSchema)
 
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist_no_opt))
     }
@@ -166,14 +166,14 @@ object Job {
         case (track1, track1Name, track2, track2Name, count) =>
           Row(track1, track1Name, track2, track2Name, count)
       }
-      val resultDF = spark.createDataFrame(rowRDD, schema2)
+      val resultDF = spark.createDataFrame(rowRDD, secondJobSchema)
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_no_opt))
 
       // Salva il risultato
       //enrichedResults.coalesce(1).saveAsTextFile(Config.projectDir + "output/result")
     }
     else if (job == "3") {
-      // Job Gigi Optimized
+      // Job 1 ottimizzato
       import org.apache.spark.HashPartitioner
 
       // Numero di partizioni, dipende dalle risorse del cluster
@@ -249,7 +249,7 @@ object Job {
 
       // save on output directory
       val rowRDD = spark.sparkContext.parallelize(Seq(Row(result)))
-      val resultDF = spark.createDataFrame(rowRDD, schema)
+      val resultDF = spark.createDataFrame(rowRDD, firstJobSchema)
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_avg_song_per_artist_opt))
     }
     else if (job == "4") {
@@ -310,7 +310,7 @@ object Job {
         case (track1, track1Name, track2, track2Name, count) =>
           Row(track1, track1Name, track2, track2Name, count)
       }
-      val resultDF = spark.createDataFrame(rowRDD, schema2)
+      val resultDF = spark.createDataFrame(rowRDD, secondJobSchema)
 
       resultDF.write.format("csv").mode(SaveMode.Overwrite).save(Commons.getDatasetPath(writeMode, path_to_most_similar_song_opt))
 
